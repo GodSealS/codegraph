@@ -6,7 +6,7 @@ Already installed? Run `codegraph upgrade`
 
 Follow [@getcodegraph](https://x.com/getcodegraph) on X for updates.
 
-### Supercharge Claude Code, Cursor, Codex, OpenCode, Hermes Agent, Gemini, Antigravity, and Kiro with Semantic Code Intelligence
+### Supercharge Claude Code, Cursor, Codex, OpenCode, Hermes Agent, Gemini, Antigravity, Kiro, CodeBuddy, and CodeSquad with Semantic Code Intelligence
 
 **The fastest complete code graph · surgical context · built for how agents actually work · 100% local**
 
@@ -35,6 +35,8 @@ Follow [@getcodegraph](https://x.com/getcodegraph) on X for updates.
 [![Gemini](https://img.shields.io/badge/Gemini-supported-blueviolet.svg)](#supported-agents)
 [![Antigravity](https://img.shields.io/badge/Antigravity-supported-blueviolet.svg)](#supported-agents)
 [![Kiro](https://img.shields.io/badge/Kiro-supported-blueviolet.svg)](#supported-agents)
+[![CodeBuddy](https://img.shields.io/badge/CodeBuddy-supported-blueviolet.svg)](#supported-agents)
+[![CodeSquad](https://img.shields.io/badge/CodeSquad-supported-blueviolet.svg)](#supported-agents)
 
 <br>
 
@@ -756,6 +758,8 @@ is written):
 - **Gemini CLI**
 - **Antigravity IDE**
 - **Kiro**
+- **CodeBuddy**
+- **CodeSquad**
 
 ## Supported Languages
 
