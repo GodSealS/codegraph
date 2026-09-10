@@ -34,7 +34,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { isSourceFile, buildScopeIgnore, type ScopeIgnore } from '../extraction';
-import { loadExtensionOverrides } from '../project-config';
+import { loadExtensionOverrides, loadJsonDirectories } from '../project-config';
 import { logDebug, logWarn } from '../errors';
 import { normalizePath } from '../utils';
 import { isCodeGraphDataDir } from '../directory';
@@ -574,7 +574,7 @@ export class FileWatcher {
     if (!rel || rel === '.' || rel.startsWith('..')) return;
     if (this.isAlwaysIgnored(rel)) return;
     if (this.ignoreMatcher && this.ignoreMatcher.ignores(rel)) return;
-    if (!isSourceFile(rel, loadExtensionOverrides(this.projectRoot))) {
+    if (!isSourceFile(rel, loadExtensionOverrides(this.projectRoot), loadJsonDirectories(this.projectRoot))) {
       this.maybeScheduleForRemovedDir(rel);
       return;
     }

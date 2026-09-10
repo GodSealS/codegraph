@@ -177,7 +177,15 @@ class ENGINE_API UNetConnectionRepControl : public UObject
 
   it('should return unknown for unsupported extensions', () => {
     expect(detectLanguage('styles.css')).toBe('unknown');
-    expect(detectLanguage('data.json')).toBe('unknown');
+    expect(detectLanguage('notes.txt')).toBe('unknown');
+  });
+
+  it('should detect Markdown, HTML, and JSON files', () => {
+    expect(detectLanguage('README.md')).toBe('markdown');
+    expect(detectLanguage('docs/guide.markdown')).toBe('markdown');
+    expect(detectLanguage('index.html')).toBe('html');
+    expect(detectLanguage('page.htm')).toBe('html');
+    expect(detectLanguage('package.json')).toBe('json');
   });
 });
 

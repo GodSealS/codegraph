@@ -29,6 +29,9 @@ import { AstroExtractor } from './astro-extractor';
 import { DfmExtractor } from './dfm-extractor';
 import { VueExtractor } from './vue-extractor';
 import { MyBatisExtractor } from './mybatis-extractor';
+import { MarkdownExtractor } from './markdown-extractor';
+import { HtmlExtractor } from './html-extractor';
+import { JsonExtractor } from './json-extractor';
 import { CfmlExtractor } from './cfml-extractor';
 import { tryKernelExtract, takeDeferredPreParse } from './kernel';
 import {
@@ -6687,6 +6690,19 @@ export function extractFromSource(
     // Custom extractor for MyBatis mapper XML. Non-mapper XML returns just a
     // file node so the watcher tracks it without emitting symbols.
     const extractor = new MyBatisExtractor(filePath, source);
+    result = extractor.extract();
+  } else if (detectedLanguage === 'markdown') {
+    // Custom extractor for Markdown docs: headings → namespace nodes,
+    // [text](path) → file-reference (imports) edges.
+    const extractor = new MarkdownExtractor(filePath, source);
+    result = extractor.extract();
+  } else if (detectedLanguage === 'html') {
+    // Custom extractor for static HTML: file node + local resource references.
+    const extractor = new HtmlExtractor(filePath, source);
+    result = extractor.extract();
+  } else if (detectedLanguage === 'json') {
+    // Custom extractor for JSON config/data: file node + top-level keys.
+    const extractor = new JsonExtractor(filePath, source);
     result = extractor.extract();
   } else if (detectedLanguage === 'cfml' || detectedLanguage === 'cfscript') {
     // Custom extractor for CFML (.cfc/.cfm) — dialect-switches between the

@@ -664,6 +664,23 @@ CodeGraph discovers those files off disk, overriding `.gitignore`, on index,
 sync, and watch. An explicit `exclude` still wins, and built-in skips
 (`node_modules`, `dist`, `.git`) are never re-included.
 
+### JSON files (opt-in directories)
+
+Unlike code and Markdown/HTML, `.json` is **not** indexed by default — a JSON
+file enters the graph only when it sits under a directory you explicitly list in
+`jsonDirectories`. Matched by path prefix (recursive), project-root-relative:
+
+```json
+{
+  "jsonDirectories": ["config", "src/data/"]
+}
+```
+
+This indexes `config/app.json` and `src/data/nested/x.json` (and any other `.json`
+under those trees), while `package.json`, `tsconfig.json`, and JSON elsewhere are
+left out. Shopify Liquid `templates/*.json` / `sections/*.json` are unaffected —
+they ride the Liquid path, not this JSON-data path.
+
 ### Custom file extensions
 
 If your project uses a non-standard extension for a [supported
@@ -799,6 +816,9 @@ is written):
 | Solidity | `.sol` | Full support (contracts, libraries, interfaces, structs, enums, modifiers, events, errors, state variables, `import`/`using` directives, `emit`/`revert` calls) |
 | Terraform / OpenTofu | `.tf`, `.tfvars`, `.tofu` | Full support (resources, data sources, modules, variables, outputs, providers incl. aliases, `locals`; `var.`/`local.`/`module.`/resource references with Terraform's per-directory scoping enforced; module calls bridged across the boundary — inputs to the child module's variables, `module.M.out` to the child's output, `source` to the module's files; cloudposse/atmos `remote-state` cross-component wiring when the component is statically named; `provider = aws.east` selections resolved up the module tree; `moved`/`import`/`removed`/`check` block references; `.tfvars` assignments linked to the variables they set) |
 | Nix | `.nix` | Full support (functions with simple/destructured/curried params, `let`/attrset bindings, `inherit`, `import ./path` file edges — `./dir` resolving through `default.nix` — plus NixOS module `imports = [ ./x.nix ]` lists and `callPackage ./pkg.nix` file edges; call edges; module-system option wiring — a config write like `launchd.user.agents.x = { ... }` links to the module declaring `options.launchd.user.agents`, so option flows trace across modules) |
+| Markdown | `.md`, `.markdown` | Docs tracking (file node; headings as searchable namespace nodes; `[text](path)` links → doc/doc and doc/code edges) |
+| HTML | `.html`, `.htm` | File tracking (file node; local `<a href>`/`<link href>`/`<script src>`/`<img src>` references) |
+| JSON | `.json` | Opt-in via `codegraph.json` `jsonDirectories` — file node + top-level keys as constant nodes (values never stored) |
 
 ## Measured cross-file coverage
 

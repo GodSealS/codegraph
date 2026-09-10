@@ -11,7 +11,7 @@ import * as fsp from 'fs/promises';
 import { Parser, Language as WasmLanguage } from 'web-tree-sitter';
 import { Language } from '../types';
 
-export type GrammarLanguage = Exclude<Language, 'svelte' | 'vue' | 'astro' | 'liquid' | 'razor' | 'yaml' | 'twig' | 'xml' | 'properties' | 'unknown'>;
+export type GrammarLanguage = Exclude<Language, 'svelte' | 'vue' | 'astro' | 'liquid' | 'razor' | 'yaml' | 'twig' | 'xml' | 'properties' | 'markdown' | 'html' | 'json' | 'unknown'>;
 
 /**
  * WASM filename map — maps each language to its .wasm grammar file
@@ -170,6 +170,18 @@ export const EXTENSION_MAP: Record<string, Language> = {
   '.tf': 'terraform',
   '.tfvars': 'terraform',
   '.tofu': 'terraform',
+  // Markdown docs — custom MarkdownExtractor (headings → nodes, [text](path)
+  // → file-reference edges; no tree-sitter grammar).
+  '.md': 'markdown',
+  '.markdown': 'markdown',
+  // HTML — custom HtmlExtractor (file node + local `<a href>`/`<script src>`
+  // /`<link href>`/`<img src>` file references).
+  '.html': 'html',
+  '.htm': 'html',
+  // NOTE: `.json` is deliberately ABSENT from this map. JSON is opt-in via
+  // codegraph.json `jsonDirectories` — see `isSourceFile` (gates by directory
+  // whitelist) and `detectLanguage` (returns 'json' once opted in). Keeping it
+  // out of EXTENSION_MAP is what makes a `.json` NOT a source file by default.
 };
 
 /**
@@ -181,14 +193,39 @@ export const EXTENSION_MAP: Record<string, Language> = {
  * `codegraph.json`); when present its extensions count as indexable in addition
  * to the built-ins. Omitting it is byte-identical to the zero-config behavior.
  */
-export function isSourceFile(filePath: string, overrides?: Record<string, Language>): boolean {
+export function isSourceFile(
+  filePath: string,
+  overrides?: Record<string, Language>,
+  jsonDirs?: string[]
+): boolean {
   if (isPlayRoutesFile(filePath)) return true; // Play `conf/routes` is extensionless
   if (isShopifyLiquidJson(filePath)) return true; // Shopify OS 2.0 JSON templates / section groups
   if (isErlangAppFile(filePath)) return true; // OTP `.app`/`.app.src` resource files
   const dot = filePath.lastIndexOf('.');
   if (dot < 0) return false;
   const ext = filePath.slice(dot).toLowerCase();
+  // `.json` is OPT-IN by directory whitelist (codegraph.json `jsonDirectories`):
+  // with no explicit entry it is not a source file. The Shopify JSON above is
+  // already routed to the Liquid extractor and is intentionally unaffected.
+  if (ext === '.json') return isJsonInAllowedDirectory(filePath, jsonDirs);
   return ext in EXTENSION_MAP || (!!overrides && ext in overrides);
+}
+
+/**
+ * Whether a `.json` file lives under one of the project's `jsonDirectories`
+ * whitelist entries. Matching is by path prefix (recursive): `"config"` covers
+ * `config/x.json` and `config/db/x.json`. Trailing slashes and backslashes are
+ * tolerated on both sides. An empty whitelist → false (no JSON is indexed).
+ */
+export function isJsonInAllowedDirectory(filePath: string, jsonDirs?: string[]): boolean {
+  if (!jsonDirs || jsonDirs.length === 0) return false;
+  const p = filePath.replace(/\\/g, '/');
+  for (const raw of jsonDirs) {
+    const dir = raw.trim().replace(/\\/g, '/').replace(/\/+$/, '');
+    if (!dir) continue;
+    if (p === dir || p.startsWith(dir + '/')) return true;
+  }
+  return false;
 }
 
 /**
@@ -485,6 +522,11 @@ export function detectLanguage(filePath: string, source?: string, overrides?: Re
   // OTP `.app`/`.app.src` resource files — Erlang terms the grammar parses as
   // top-level expressions (last-dot ext `.src` is too generic for the map).
   if (isErlangAppFile(filePath)) return 'erlang';
+  // `.json` is opt-in (codegraph.json `jsonDirectories`) but, once opted in, is
+  // parsed by the JsonExtractor. Not in EXTENSION_MAP (which would make it a
+  // source file by default); resolved here so `isSourceFile` and `detectLanguage`
+  // stay in lockstep.
+  if (ext === '.json') return 'json';
   const lang = (overrides && overrides[ext]) || EXTENSION_MAP[ext] || 'unknown';
 
   // .h files could be C, C++, or Objective-C — check source content
@@ -536,6 +578,9 @@ export function isLanguageSupported(language: Language): boolean {
   if (language === 'twig') return true; // file-level tracking only
   if (language === 'xml') return true; // MyBatis mapper extractor
   if (language === 'properties') return true; // Spring config keys
+  if (language === 'markdown') return true; // custom MarkdownExtractor
+  if (language === 'html') return true; // custom HtmlExtractor
+  if (language === 'json') return true; // custom JsonExtractor
   if (language === 'unknown') return false;
   return language in WASM_GRAMMAR_FILES;
 }
@@ -547,6 +592,7 @@ export function isGrammarLoaded(language: Language): boolean {
   if (language === 'svelte' || language === 'vue' || language === 'astro' || language === 'liquid' || language === 'razor') return true;
   if (language === 'yaml' || language === 'twig') return true; // no WASM grammar needed
   if (language === 'xml' || language === 'properties') return true; // no WASM grammar needed
+  if (language === 'markdown' || language === 'html' || language === 'json') return true; // no WASM grammar needed
   return languageCache.has(language);
 }
 
@@ -567,7 +613,7 @@ export function isFileLevelOnlyLanguage(language: Language): boolean {
  * Get all supported languages (those with grammar definitions).
  */
 export function getSupportedLanguages(): Language[] {
-  return [...(Object.keys(WASM_GRAMMAR_FILES) as GrammarLanguage[]), 'svelte', 'vue', 'astro', 'liquid'];
+  return [...(Object.keys(WASM_GRAMMAR_FILES) as GrammarLanguage[]), 'svelte', 'vue', 'astro', 'liquid', 'markdown', 'html', 'json'];
 }
 
 /**
@@ -655,6 +701,9 @@ export function getLanguageDisplayName(language: Language): string {
     erlang: 'Erlang',
     terraform: 'Terraform',
     arkts: 'ArkTS',
+    markdown: 'Markdown',
+    html: 'HTML',
+    json: 'JSON',
     unknown: 'Unknown',
   };
   return names[language] || language;

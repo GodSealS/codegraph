@@ -67,6 +67,16 @@ export interface ProjectConfig {
    * wins. Absent/empty (the default) forces nothing in.
    */
   include?: string[];
+  /**
+   * Directories (project-root-relative) whose `.json` files should be indexed.
+   * `.json` is OPT-IN: a JSON file enters the graph only when it sits under one
+   * of these directories. Absent/empty (the default) indexes NO `.json` files —
+   * unlike code/doc languages, which are on by default. Matched by path prefix
+   * (recursive), so `"config"` also covers `config/db/x.json`. Shopify Liquid
+   * `templates/*.json` / `sections/*.json` are unaffected (they ride the Liquid
+   * path, not this JSON-data path).
+   */
+  jsonDirectories?: string[];
 }
 
 /** Parsed, validated view of a project's `codegraph.json`. */
@@ -75,6 +85,7 @@ interface ParsedConfig {
   includeIgnored: string[];
   exclude: string[];
   include: string[];
+  jsonDirectories: string[];
 }
 
 interface CacheEntry {
@@ -97,6 +108,7 @@ const EMPTY_CONFIG: ParsedConfig = Object.freeze({
   includeIgnored: Object.freeze([]) as unknown as string[],
   exclude: Object.freeze([]) as unknown as string[],
   include: Object.freeze([]) as unknown as string[],
+  jsonDirectories: Object.freeze([]) as unknown as string[],
 });
 
 /**
@@ -149,15 +161,17 @@ function parseConfig(file: string): ParsedConfig {
   const includeIgnored = extractIncludeIgnored(parsed, file);
   const exclude = extractExclude(parsed, file);
   const include = extractInclude(parsed, file);
+  const jsonDirectories = extractJsonDirectories(parsed, file);
   if (
     extensions === EMPTY_EXTENSIONS &&
     includeIgnored.length === 0 &&
     exclude.length === 0 &&
-    include.length === 0
+    include.length === 0 &&
+    jsonDirectories.length === 0
   ) {
     return EMPTY_CONFIG;
   }
-  return { extensions, includeIgnored, exclude, include };
+  return { extensions, includeIgnored, exclude, include, jsonDirectories };
 }
 
 /**
@@ -265,6 +279,31 @@ function extractInclude(parsed: object, file: string): string[] {
 }
 
 /**
+ * Validate the `jsonDirectories` array: an array of non-empty directory paths.
+ * A non-array value or a non-string/blank entry warns-and-skips; never throws.
+ * Entries are kept verbatim (trimmed); matching is by path prefix against
+ * project-root-relative paths (see `isSourceFile`).
+ */
+function extractJsonDirectories(parsed: object, file: string): string[] {
+  const raw = (parsed as ProjectConfig).jsonDirectories;
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    logWarn(`Ignoring "jsonDirectories" in ${PROJECT_CONFIG_FILENAME}: must be an array of directory paths`, { file });
+    return [];
+  }
+
+  const out: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || !entry.trim()) {
+      logWarn(`Ignoring a "jsonDirectories" entry in ${PROJECT_CONFIG_FILENAME}: every entry must be a non-empty string`, { file });
+      continue;
+    }
+    out.push(entry.trim());
+  }
+  return out;
+}
+
+/**
  * Load the parsed `codegraph.json` for a project, mtime-cached. A missing or
  * malformed file yields the zero-config default. One `stat` (and at most one
  * read/parse) while a single config file is in force, shared across every field.
@@ -336,6 +375,17 @@ export function loadExcludePatterns(rootDir: string): string[] {
  */
 export function loadIncludePatterns(rootDir: string): string[] {
   return loadParsedConfig(rootDir).include;
+}
+
+/**
+ * Load the validated `jsonDirectories` paths for a project, mtime-cached.
+ *
+ * These name the directories whose `.json` files may enter the index (`.json`
+ * is opt-in). An empty result — the zero-config default — indexes no `.json`
+ * files. Matching is by path prefix against project-root-relative paths.
+ */
+export function loadJsonDirectories(rootDir: string): string[] {
+  return loadParsedConfig(rootDir).jsonDirectories;
 }
 
 /** Test/maintenance hook: forget cached config (e.g. after rewriting it in a test). */

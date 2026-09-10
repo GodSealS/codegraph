@@ -509,11 +509,27 @@ describe('Source file detection (isSourceFile)', () => {
     expect(isSourceFile('src/component.tsx')).toBe(true);
     expect(isSourceFile('lib/util.js')).toBe(true);
     expect(isSourceFile('src/main.py')).toBe(true);
+    // Docs are source files too — Markdown and HTML are on by default.
+    expect(isSourceFile('README.md')).toBe(true);
+    expect(isSourceFile('index.html')).toBe(true);
+  });
+
+  it('opts .json in only under a jsonDirectories whitelist', () => {
+    // `.json` is opt-in: no whitelist → not a source file.
+    expect(isSourceFile('package.json')).toBe(false);
+    expect(isSourceFile('config/app.json', undefined, [])).toBe(false);
+    // Whitelisted directory (prefix match, recursive).
+    expect(isSourceFile('config/app.json', undefined, ['config'])).toBe(true);
+    expect(isSourceFile('config/db/x.json', undefined, ['config'])).toBe(true);
+    // Prefix, not substring — a sibling dir sharing a name prefix must not match.
+    expect(isSourceFile('src/config/app.json', undefined, ['config'])).toBe(false);
+    // Trailing slash tolerated.
+    expect(isSourceFile('config/app.json', undefined, ['config/'])).toBe(true);
   });
 
   it('rejects unsupported extensions and extensionless files', () => {
     expect(isSourceFile('src/component.css')).toBe(false);
-    expect(isSourceFile('README.md')).toBe(false);
+    expect(isSourceFile('notes.txt')).toBe(false);
     expect(isSourceFile('Makefile')).toBe(false);
     expect(isSourceFile('.gitignore')).toBe(false);
   });
